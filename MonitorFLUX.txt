@@ -1,0 +1,101 @@
+#FLUX NODES data
+:local fluxNames {"FLUX-1";"FLUX-2";"FLUX-3"};
+:local fluxIP {"192.168.111.10";"192.168.111.11";"192.168.111.12"};
+:local fluxPort {16127;16137;16147};
+
+#Discord Webhook URL
+:local discordhook "https://discord.com/api/webhooks/....";
+
+#Variables
+:local httpdata "";
+:global fluxNodeStatus;
+:if ([:typeof $fluxNodeStatus] = "nothing") do={
+	:global fluxNodeStatus ({});
+}
+:global fluxTierStatus;
+:if ([:typeof $fluxTierStatus] = "nothing") do={
+	:global fluxTierStatus ({});
+}
+
+#Function for sending alerts
+:local sendAlert do={
+	:local httpdata "";
+	# Open JSON series
+	:set httpdata ($httpdata."{\"username\": \"Mikrotik Watchdog\",\"avatar_url\": \"https://cdn.shopify.com/s/files/1/0653/8759/3953/files/512.png?v=1657867177\",\"content\": \"FLUX node alert\",");
+	#add to JSON series
+	:set httpdata ($httpdata."\"embeds\": [{ \"title\": \":loudspeaker: ".$alertTitle."\",\"description\": \"".$datetime."\",\"color\": ".$alertColor.",\"fields\": [{\"name\": \"Name\",\"value\": \"".$node."\"},{\"name\": \"IP\",\"value\": \"".$ip."\"},{\"name\": \"Description\",\"value\": \"".$alertDescription."\"}]}]}");
+	#send alert
+    /tool fetch keep-result=no mode=https http-method=post http-header-field="Content-Type:application/json" http-data=$httpdata url=$url;
+}
+
+#check FLUX nodes availability
+:foreach index,node in=$fluxNames do={
+	:local datetime ([/system clock get date]." ".[/system clock get time]);
+	:local ip ($fluxIP->$index);
+	:local pings ([/ping count=5 $ip interval=1s])
+
+	:if ($pings = 0) do={
+	#The Node is DOWN (no ping response)
+	
+		#check if went from UP -> DOWN send alert
+		:if (($fluxNodeStatus->$index) != "DOWN") do={
+			:set ($fluxNodeStatus->$index) "DOWN";
+			$sendAlert ip=$ip node=$node url=$discordhook datetime=$datetime alertTitle="Flux Node is DOWN (PING)" alertColor=16453151 alertDescription="NO ping response from the node.";
+				
+		#Else just set to DOWN just in case $fluxNodeStatus was not defined yet
+		} else={
+			:set ($fluxNodeStatus->$index) "DOWN";
+		}
+
+	} else={
+	#The Node is UP
+
+		#check if went DOWN -> UP and send alert
+		:if (($fluxNodeStatus->$index) != "UP") do={
+			:set ($fluxNodeStatus->$index) "UP"	
+			$sendAlert ip=$ip node=$node url=$discordhook datetime=$datetime alertTitle="Flux Node is back UP (PING)" alertColor=3198567 alertDescription="Got ping response from the node.";
+			
+		#Else just set to UP just in case $fluxNodeStatus was not defined yet
+		} else={
+			:set ($fluxNodeStatus->$index) "UP";
+		}
+	
+		# Next check if Flux OS is responding and node tier is valid
+		:local port ($fluxPort->$index);
+		:local fetchNodeStatus;
+		:local nodeTier;
+		:do { :set fetchNodeStatus [/tool fetch url="http://$ip:$port/flux/nodetier" output=user as-value]; } on-error={ :set fetchNodeStatus "HTTP connection failed"};
+		:if ($fetchNodeStatus="HTTP connection failed") do={
+			:set nodeTier $fetchNodeStatus;
+		} else={
+			:set nodeTier [:pick ($fetchNodeStatus->"data") ([:find ($fetchNodeStatus->"data") "data"]+7) ([:find ($fetchNodeStatus->"data") "}"]-1)]
+		}
+	
+		:if (([:find $nodeTier "cumulus"] >= 0) || ([:find $nodeTier "nimbus"] >= 0) || ([:find $nodeTier "stratus"] >= 0)) do={
+		#The Flux OS is UP (node tier is valid)
+		
+			#check if went from DOWN -> UP and send alert
+			:if (($fluxTierStatus->$index) != "UP") do={
+				:set ($fluxTierStatus->$index) "UP"		
+				$sendAlert ip=$ip node=$node url=$discordhook datetime=$datetime alertTitle="Flux Node is back UP (API)" alertColor=3198567 alertDescription=("Node tier status: ".$nodeTier);
+				
+			#Else just set to UP just in case $fluxTierStatus was not defined yet
+			} else={
+				:set ($fluxTierStatus->$index) "UP";
+			}
+		
+		} else={
+		#The FluxOS is DOWN (node tier not valid)
+		
+			#check if went from UP -> DOWN and send alert
+			:if (($fluxTierStatus->$index) != "DOWN") do={
+				:set ($fluxTierStatus->$index) "DOWN"
+				$sendAlert ip=$ip node=$node url=$discordhook datetime=$datetime alertTitle="Flux Node is DOWN (API)" alertColor=16453151 alertDescription=("Node tier status: ".$nodeTier);
+				
+			#Else just set to UP just in case $fluxTierStatus was not defined yet
+			} else={
+				:set ($fluxTierStatus->$index) "DOWN";
+			}		
+		}
+	}
+}
