@@ -1,2 +1,14 @@
 # Flux-mikrotik-discord
-Monitoring Flux nodes from Mikrotik router and send alerts to Discord.
+Monitoring Flux nodes from Mikrotik router and send alerts to Discord (webhook).
+
+The script does the following:
+- Ping the NODE IP and sends alert to Discord if node becomes unreachable,
+- if ping is successfull it also checks the node tier status via HTTP API. If tier is not either cumulus|stratus|nimbus, it sends alert to Discord.
+
+There are two types of alerts, the DOWN and UP (recovery) alert.
+
+![image](https://github.com/outlawww/Flux-mikrotik-discord/assets/30106075/eedfd9ca-25b7-4f63-beaf-14d64f93a59f)
+![image](https://github.com/outlawww/Flux-mikrotik-discord/assets/30106075/a0253bf0-a315-46a7-b677-a3408aa6b0f8)
+
+* Usage
+upload the script
