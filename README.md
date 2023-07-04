@@ -7,8 +7,18 @@ The script does the following:
 
 There are two types of alerts, the DOWN and UP (recovery) alert.
 
+You can use Mikrotik built-in scheduler to run the script in intervals.
+
+## Requirenemnts
+- Mikrotik router with RouterOS v6.2+
+- Discord Webhook - you can use the one you already use for FLUX nodes or create new one (https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks)
+
+## Usage
+- use "MonitorFLUX.rsc" to import the script on Mikrotik.
+- Edit the script, change the FLUX node details and inser your webhook address.
+- create scheduler `add interval=1m name="Monitor FLUX nodes" on-event=/system script run "Monitor FLUX"`
+
+
 ![image](https://github.com/outlawww/Flux-mikrotik-discord/assets/30106075/eedfd9ca-25b7-4f63-beaf-14d64f93a59f)
 ![image](https://github.com/outlawww/Flux-mikrotik-discord/assets/30106075/a0253bf0-a315-46a7-b677-a3408aa6b0f8)
 
-* Usage
-upload the script
